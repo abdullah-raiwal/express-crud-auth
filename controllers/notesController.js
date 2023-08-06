@@ -7,21 +7,22 @@ exports.restrictId = (req, res, next, value) => {
 }
 
 exports.getAllNotes = async (req, res) => {
-  console.log(req.query);
 
+  const { priority_min, priority_max, importtant, sort, limit, page } = req.query
 
-  const { priority, importtant } = req.query
-  console.log("🚀 ~ file: notesController.js:14 ~ exports.getAllNotes= ~ importtant:", String(importtant))
-
-
+  const pageNumber = parseInt(page) || 1;
+  const perPage = parseInt(limit) || 5;
+  const offset = (pageNumber - 1) * perPage;
 
   try {
     const notes = await prisma.note.findMany({
+
       where: {
         AND: [
           {
             priority: {
-              equals: priority ? parseInt(priority) : undefined
+              gt: priority_min ? parseInt(priority_min) : undefined,
+              lt: priority_max ? parseInt(priority_max) : undefined
             }
           },
           {
@@ -30,7 +31,17 @@ exports.getAllNotes = async (req, res) => {
             }
           }
         ]
-      }
+      },
+      orderBy: [
+        {
+          title: sort && sort.includes("title") ? sort.replace("title,", "") : undefined,
+        },
+        {
+          priority: sort && sort.includes("priority") ? sort.replace("priority,", "") : undefined,
+        },
+      ],
+      take: perPage,
+      skip: offset
     });
     if (!notes) {
       res.status(404).json({ error: "no notes found" });
@@ -51,7 +62,7 @@ exports.createNote = async (req, res) => {
       data: { title, description, importtant, priority },
     });
 
-    res.status(201).json(post);
+    res.status(201).json(note);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "an internal server error occured" });
