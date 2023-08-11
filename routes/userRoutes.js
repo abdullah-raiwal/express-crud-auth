@@ -5,6 +5,7 @@ const { signUp, login } = require('../controllers/authController')
 const userRouter = express.Router();
 // method to sign up a new user
 userRouter.route('/signup').post(signUp);
+// method to log in a user
 userRouter.route('/login').post(login);
 
 // methods to /api/user

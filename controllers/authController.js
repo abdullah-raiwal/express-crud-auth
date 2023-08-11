@@ -3,6 +3,7 @@ const { userSchema } = require('../schema-validator/userSchema')
 const bcrypt = require('bcryptjs')
 const jsonwebtoken = require('jsonwebtoken')
 
+// method to sign in a user
 exports.signUp = async (req, res) => {
 
     try {
@@ -19,9 +20,11 @@ exports.signUp = async (req, res) => {
         const user = await prisma.user.create({
             data: {
                 ...userData,
-                password: hashedPassword
+                password: hashedPassword,
+
             }
         })
+
         // delete user data from request body
         delete user.password
         const jwtToken = jsonwebtoken.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -41,8 +44,6 @@ exports.login = async (req, res) => {
 
     try {
         const { username, password } = req.body
-        // await userSchema.validate({ username, password })
-
         const user = await prisma.user.findUnique({
             where: {
                 username
@@ -55,11 +56,11 @@ exports.login = async (req, res) => {
         if (!validPassword) {
             return res.status(401).json({ message: "Invalid username or password" })
         }
-        const jwtToken = jsonwebtoken.sign({ id: user._id }, process.env.JWT_SECRET, {
+
+        const jwtToken = jsonwebtoken.sign({ id: user.id }, process.env.JWT_SECRET, {
             expiresIn: 300
         })
-        res.status(200).json({ message: "User logged in successfully", result: { id: user._id, jwt: jwtToken } })
-
+        res.status(200).json({ message: "User logged in successfully", result: { id: user.id, jwt: jwtToken } })
 
     } catch (error) {
         console.log("🚀 ~ file: authController.js:65 ~ exports.login= ~ error:", error)
@@ -67,4 +68,48 @@ exports.login = async (req, res) => {
 
     }
 
+}
+
+exports.ProtectRoutes = async (req, res, next) => {
+
+    // check if authorization token is exists in reqheaders
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+
+        const token = req.headers.authorization.split(' ')[1]
+        if (!token) {
+            return res.status(401).json({ message: "login to view notes" })
+        }
+        jsonwebtoken.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+            if (err) {
+                return res.status(401).json({ message: "Invalid token" })
+            }
+
+            const user = await prisma.user.findUnique({
+                where: {
+                    id: decoded.id
+                }
+            })
+            if (!user) {
+                return res.status(401).json({ message: "user not found" })
+            }
+
+            if (user.passwordChanged && decoded.iat < new Date(user.passwordChanged).getDate()) {
+                return res.status(401).json({ message: "the password has been changed. please login again." })
+            }
+            req.user = user
+            next();
+        })
+    }
+    else {
+        return res.status(401).json({ message: "Invalid token" })
+    }
+}
+
+exports.adminCheck = async (req, res, next) => {
+
+    if (req.user.role !== "ADMIN") {
+        return res.status(401).json({ message: "admin access required." })
+    }
+
+    next();
 }

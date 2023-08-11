@@ -1,11 +1,5 @@
 const prisma = require("../lib/db");
 
-
-exports.restrictId = (req, res, next, value) => {
-  if (value === '64c7edebb2ba09bd3fdf58d3') return res.send("this id is restricted.")
-  next()
-}
-
 exports.getAllNotes = async (req, res) => {
 
   const { priority_min, priority_max, importtant, sort, limit, page } = req.query
@@ -44,7 +38,7 @@ exports.getAllNotes = async (req, res) => {
       skip: offset
     });
     if (!notes) {
-      res.status(404).json({ error: "no notes found" });
+      return res.status(404).json({ error: "no notes found" });
     }
 
     res.status(200).json(notes);
